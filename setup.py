@@ -8,6 +8,6 @@ setup(
     license='MIT',
     author='zhengtong0898',
     author_email='',
-    requires=['torndb'],
+    requires=['torndb', 'pymysql'],
     description='MySQL connection pool utility. It is based on torndb library.'
 )
