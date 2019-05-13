@@ -1,4 +1,5 @@
 # -.- coding:utf-8 -.-
+import thread
 import threading
 from . import torndb
 from queue import Queue
@@ -12,9 +13,9 @@ class PoolException(Exception):
 class Pool(object):
 
     def __init__(self, host, database, user=None, password=None,
-                 max_idle_time=7 * 3600, connect_timeout=30,
-                 time_zone="+8:00", charset="utf8mb4",
-                 sql_mode="TRADITIONAL", pool_size=100, **kwargs):
+                 max_idle_time=7 * 3600, connect_timeout=30, time_zone="+8:00",
+                 charset="utf8mb4", sql_mode="TRADITIONAL",
+                 pool_size=100, auto_commit=True, **kwargs):
         """
         :param pool_size: 线程池大小, 默认是100, 这个参数应该多大比较合适, 取决
         于mysql的max_connections参数的设定以及操作系统的限制, 例如linux的
@@ -25,7 +26,9 @@ class Pool(object):
         self.cond = threading.Condition(threading.RLock())
         self._idles = Queue()
         self._busies = []
+        self._conns = {}
         self.pool_size = pool_size
+        self.auto_commit = auto_commit
         self.db_kwargs = dict(host=host, database=database, user=user,
                                password=password, max_idle_time=max_idle_time,
                                connect_timeout=connect_timeout,
@@ -56,10 +59,10 @@ class Pool(object):
 
     def release(self, conn):
         with self.cond:
-            
+
             if conn not in self._busies:
                 raise PoolException("Release unknown connection.")
-            
+
             index = self._busies.index(conn)
             self._busies.pop(index)
             self._idles.put(conn)
@@ -74,6 +77,17 @@ class Pool(object):
                     self.__class__.__name__,  self.pool_size,
                     self.idles(),  len(self._busies))
 
+    def __enter__(self):
+        conn = self.connect()
+        self._conns[thread.get_ident()] = conn
+        return conn
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        ident = thread.get_ident()
+        if ident in self._conns:
+            self._conns[ident].release()
+            self._conns.pop(ident)
+
 
 class Connection(torndb.Connection):
 
@@ -85,4 +99,15 @@ class Connection(torndb.Connection):
         self.pool.release(self)
 
     def commit(self):
-        self._db.commit()
+        return self._db.commit()
+
+    def rollback(self):
+        return self._db.rollback()
+
+    def begin(self):
+        return self._db.begin()
+
+    def reconnect(self):
+        self.close()
+        self._db = MySQLdb.connect(**self._db_args)
+        self._db.autocommit(self.pool.auto_commit)
