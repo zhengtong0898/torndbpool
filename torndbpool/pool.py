@@ -92,8 +92,8 @@ class Pool(object):
 class Connection(torndb.Connection):
 
     def __init__(self, pool, *args, **kwargs):
-        super(Connection, self).__init__(*args, **kwargs)
         self.pool = pool
+        super(Connection, self).__init__(*args, **kwargs)
 
     def release(self):
         self.pool.release(self)
@@ -108,6 +108,5 @@ class Connection(torndb.Connection):
         return self._db.begin()
 
     def reconnect(self):
-        self.close()
-        self._db = MySQLdb.connect(**self._db_args)
+        super(Connection, self).reconnect()
         self._db.autocommit(self.pool.auto_commit)
