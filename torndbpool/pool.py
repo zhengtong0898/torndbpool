@@ -83,3 +83,6 @@ class Connection(torndb.Connection):
 
     def release(self):
         self.pool.release(self)
+
+    def commit(self):
+        self._db.commit()
