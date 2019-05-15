@@ -27,6 +27,7 @@ class Pool(object):
         self._idles = Queue()
         self._busies = []
         self._conns = {}
+        self._too_many_conns = []
         self.pool_size = pool_size
         self.auto_commit = auto_commit
         self.db_kwargs = dict(host=host, database=database, user=user,
@@ -42,8 +43,9 @@ class Pool(object):
     def _connect(self, connect_factory=None, timeout=10):
         with self.cond:
 
-            if self.idles():
+            if self.idles() > 0:
                 conn = connect_factory()
+                print("conn: ", conn, self.idles(), len(self._busies), self._idles.qsize())
             else:
                 if self._idles.qsize():
                     conn = self._idles.get()
@@ -70,7 +72,7 @@ class Pool(object):
 
     def idles(self):
         with self.cond:
-            return self.pool_size - len(self._busies)
+            return self.pool_size - self._idles.qsize() - len(self._busies)
 
     def __str__(self):
         return "<{} pool_size={} idles={} busies={} >".format(
