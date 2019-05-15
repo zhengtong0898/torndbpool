@@ -45,7 +45,6 @@ class Pool(object):
 
             if self.idles() > 0:
                 conn = connect_factory()
-                print("conn: ", conn, self.idles(), len(self._busies), self._idles.qsize())
             else:
                 if self._idles.qsize():
                     conn = self._idles.get()
