@@ -27,7 +27,6 @@ class Pool(object):
         self._idles = Queue()
         self._busies = []
         self._conns = {}
-        self._too_many_conns = []
         self.pool_size = pool_size
         self.auto_commit = auto_commit
         self.db_kwargs = dict(host=host, database=database, user=user,
